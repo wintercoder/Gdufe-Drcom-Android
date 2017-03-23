@@ -1,10 +1,28 @@
 package com.guang.drcomandroid.drcom;
 
-import android.os.AsyncTask;
+import android.app.AppOpsManager;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
+import android.app.Service;
+import android.content.Context;
+import android.content.Intent;
+import android.content.pm.ApplicationInfo;
+import android.os.Handler;
+import android.os.IBinder;
+import android.os.Looper;
+import android.support.annotation.Nullable;
+import android.support.v4.app.NotificationCompat;
+import android.util.Log;
+import android.widget.Toast;
 
 import com.apkfuns.logutils.LogUtils;
+import com.guang.drcomandroid.MainActivity;
+import com.guang.drcomandroid.R;
 
 import java.io.IOException;
+import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
@@ -13,13 +31,12 @@ import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
 
 /**
- * Created by lin on 2017-01-11-011.
- * challenge, login, keep_alive, logout
- * Modify by guang on 2017-03-21
- * 做了GDUFE的适配，更改为Android的AsyncTask方式，增加事件回调
+ * Created by xiaoguang on 2017/3/22.
  */
-public class DrcomTask extends AsyncTask<HostInfo,String,String> {
-    private MsgListener mListener;
+public class DrcomService extends Service{
+    private final static String TAG = DrcomService.class.getSimpleName();
+    private static final long TIME_FOR_BUG = 300;
+
     private String mHostName = "Android";   //机器名，可随意
     private String mHostOs = "Android";   //系统名，可随意
     private String username;
@@ -27,36 +44,97 @@ public class DrcomTask extends AsyncTask<HostInfo,String,String> {
     private HostInfo mHostInfo;
     private boolean isLogin = false; //是否登陆成功，用于注销和重复登陆判断
 
-    //后台任务,不可在此方法内修改UI
+    private final static int FOREGROUND_ID = 1000;
+    @Nullable
     @Override
-    protected String doInBackground(HostInfo... hostInfos) {
-        this.mHostInfo = hostInfos[0];
+    public IBinder onBind(Intent intent) {
+        return null;
+    }
+    @Override
+    public int onStartCommand(Intent intent, int flags, int startId) {
+        Log.i(TAG, "WhiteService->onStartCommand");
+        mHostInfo = (HostInfo)intent.getSerializableExtra("info");
         username = mHostInfo.getUsername();
         password = mHostInfo.getPassword();
-        mainRun();
-        return "";
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                // 开始执行后台任务
+                mainRun();
+            }
+        }).start();
+        return super.onStartCommand(intent, flags, startId);
     }
     //打日志，封装一下，方便修改
     private void performLogCall(String msg){
         LogUtils.i(msg);
     }
-    //需要显示给用户看的，递给 onProgressUpdate 再传给回调Listener
-    private void performMsgCall(String msg){
+    //需要显示给用户看的
+    private void performMsgCall(final String msg){
         performLogCall(msg);
-        publishProgress(msg);
+        Handler handler=new Handler(Looper.getMainLooper());
+        handler.post(new Runnable(){
+            public void run(){
+                Toast.makeText(getApplicationContext(), msg, Toast.LENGTH_LONG).show();
+            }
+        });
     }
     @Override
-    protected void onProgressUpdate(String... values) {
-        super.onProgressUpdate(values);
-        mListener.onMsgReceived(values[0]);
+    public void onCreate() {
+        super.onCreate();
+        LogUtils.e("oncreate:"+isNotificationEnabled(this));
     }
-    public interface MsgListener{
-        void onMsgReceived(String msg);
+
+    private void showNotification() {
+        NotificationManager mNotifyMgr =
+                (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+        PendingIntent contentIntent = PendingIntent.getActivity(
+                this, 1, new Intent(this, MainActivity.class), 0);
+        NotificationCompat.Builder mBuilder =
+                new NotificationCompat.Builder(this)
+                        .setSmallIcon(R.mipmap.ic_launcher)
+                        .setContentTitle("Drcom正常运行中")
+                        .setContentText("测试")
+                        .setTicker("测试通知来啦")
+                        .setWhen(System.currentTimeMillis())
+                        .setContentIntent(contentIntent);
+        mNotifyMgr.notify(FOREGROUND_ID, mBuilder.build());
     }
-    public void setOnMsgReceivedListener(MsgListener listener){
-        if(listener != null){
-            mListener = listener;
+    private void hideNotification(){
+        NotificationManager notificationManager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+        notificationManager.cancel(FOREGROUND_ID);
+    }
+
+
+    private  boolean isNotificationEnabled(Context context) {
+
+        AppOpsManager mAppOps = (AppOpsManager) context.getSystemService(Context.APP_OPS_SERVICE);
+        ApplicationInfo appInfo = context.getApplicationInfo();
+        String pkg = context.getApplicationContext().getPackageName();
+        int uid = appInfo.uid;
+
+        Class appOpsClass = null;
+        try {
+            appOpsClass = Class.forName(AppOpsManager.class.getName());
+            Method checkOpNoThrowMethod = appOpsClass.getMethod("checkOpNoThrow", Integer.TYPE, Integer.TYPE,
+                    String.class);
+            Field opPostNotificationValue = appOpsClass.getDeclaredField("OP_POST_NOTIFICATION");
+
+            int value = (Integer) opPostNotificationValue.get(Integer.class);
+            return ((Integer) checkOpNoThrowMethod.invoke(mAppOps, value, uid, pkg) == AppOpsManager.MODE_ALLOWED);
+
+        } catch (ClassNotFoundException e) {
+            e.printStackTrace();
+        } catch (NoSuchMethodException e) {
+            e.printStackTrace();
+        } catch (NoSuchFieldException e) {
+            e.printStackTrace();
+        } catch (InvocationTargetException e) {
+            e.printStackTrace();
+        } catch (IllegalAccessException e) {
+            e.printStackTrace();
         }
+        return false;
     }
 
     //Drcom 协议若干字段信息
@@ -94,11 +172,15 @@ public class DrcomTask extends AsyncTask<HostInfo,String,String> {
      */
     private int count = 0;
     private int keep38Count = 0;//仅用于日志计数
-    private boolean notifyLogout = false;
+    private volatile boolean notifyLogout = false;
     private DatagramSocket client;
     private InetAddress serverAddress;
 
     private void mainRun() {
+        if(isLogin){
+            performMsgCall("重复登陆");
+            return;
+        }
         boolean exception = false;
         try {
             init();
@@ -114,14 +196,51 @@ public class DrcomTask extends AsyncTask<HostInfo,String,String> {
             }
             performMsgCall("登录成功");
             isLogin = true;
+            showNotification();
             /**********************  KeepAlive ***************************/
             count = 0;
-            while (!notifyLogout && alive()) {//收到注销通知则停止
-                Thread.sleep(20000);//每 20s 一次
+//            boolean wtf = true;
+            int reconnectTimes = 0;
+
+            long oldTimes = System.currentTimeMillis();//上一次重连/正常运行 开始的时间
+            while (reconnectTimes <= DrcomConfig.ReconnectTIMES){
+                try {
+                    while (!notifyLogout && alive()) {//收到注销通知则停止
+                        Thread.sleep(20000);//每 20s 一次
+                    }
+                } catch (SocketTimeoutException e) {
+                    e.printStackTrace();
+                    performLogCall(e.getCause().getMessage());
+                    reconnectTimes++;
+                    //重连多次后放弃
+                    if(reconnectTimes > DrcomConfig.ReconnectTIMES){
+                        performMsgCall("从重连到放弃，准备断网");
+                        break;
+                    }
+                    performMsgCall("通信超时，第"+reconnectTimes+"次自动重连");
+
+                    //重置端口 继续发alive包，若超过则可能是UDP丢包导致
+                    init();
+                    if(reconnectTimes >= 2){
+                        //第一次只重发alive失败后之后选择重新登陆
+                        if (!challenge(challengeTimes++)||!login()) {
+                            performMsgCall("自动重新登陆失败，准备断网");
+                            break;
+                        }
+                    }
+
+                    //两次重连间相隔5分钟则认为是服务器或者其他非客户端导致的问题，重置重连次数
+                    long curTimes = System.currentTimeMillis();
+                    if( (curTimes-oldTimes)/(1000 * 60) > 5){
+                        reconnectTimes = 0;
+                    }
+                    oldTimes = curTimes;
+                }
             }
         } catch (SocketTimeoutException e) {
-            performMsgCall("通信超时"+e.getMessage());
-            exception = true;
+            e.printStackTrace();
+            performMsgCall("通信超时:"+e.getMessage());
+//            exception = true;
         } catch (IOException e) {
             performMsgCall("IO 异常"+e.getMessage());
             exception = true;
@@ -133,6 +252,7 @@ public class DrcomTask extends AsyncTask<HostInfo,String,String> {
         } finally {
             if (exception) {//若发生了异常：密码错误等。 则应允许重新登录
                 //TODO 重新登录
+                hideNotification();
                 isLogin = false;
             }
             if (client != null) {
@@ -147,14 +267,20 @@ public class DrcomTask extends AsyncTask<HostInfo,String,String> {
      */
     private void init()  {
         try {
-            //每次使用同一个端口 若有多个客户端运行这里会抛出异常
-            client = new DatagramSocket(DrcomConfig.PORT);
+            if(client != null){
+                client.close();
+                client = null;
+            }
+            client = new DatagramSocket();//客户端端口随机
             client.setSoTimeout(DrcomConfig.TIMEOUT);
             serverAddress = InetAddress.getByName(DrcomConfig.AUTH_SERVER);
         } catch (SocketException e) {
             performMsgCall("端口占用冲突"+e.getMessage());
         } catch (UnknownHostException e) {
             performMsgCall("认证服务器不通，确保你在校园网wifi内");
+        }catch (Exception e){
+            e.printStackTrace();
+            performMsgCall(e.getMessage());
         }
     }
 
@@ -164,11 +290,12 @@ public class DrcomTask extends AsyncTask<HostInfo,String,String> {
     private boolean challenge(int tryTimes) {
         try {
             //gdufe 0x2b是2017-03-20抓官方来的
-            byte[] buf = {0x01, (byte) (0x02 + tryTimes), ByteUtil.randByte(), ByteUtil.randByte(), 0x2b,
+            byte[] buf = {0x01, (byte) (0x02 + tryTimes), ByteUtil.randByte(), ByteUtil.randByte(), 0x22,
                     0x00, 0x00, 0x00, 0x00, 0x00,
                     0x00, 0x00, 0x00, 0x00, 0x00,
                     0x00, 0x00, 0x00, 0x00, 0x00};
             DatagramPacket packet = new DatagramPacket(buf, buf.length, serverAddress, DrcomConfig.PORT);
+            sleepBeforeSend();
             client.send(packet);
             performLogCall("send challenge data: " + ByteUtil.toHexString(buf));
             buf = new byte[76]; //返回76大小
@@ -190,10 +317,17 @@ public class DrcomTask extends AsyncTask<HostInfo,String,String> {
         }
         return true;
     }
-
+    private void sleepBeforeSend(){
+//        try {
+//            Thread.sleep(TIME_FOR_BUG);
+//        } catch (InterruptedException e) {
+//            e.printStackTrace();
+//        }
+    }
     private boolean login() throws IOException {
         byte[] buf = makeLoginPacket();
         DatagramPacket packet = new DatagramPacket(buf, buf.length, serverAddress, DrcomConfig.PORT);
+        sleepBeforeSend();
         client.send(packet);
         performLogCall("send login packet: "+ ByteUtil.toHexString(buf));
         byte[] recv = new byte[45];
@@ -336,6 +470,7 @@ public class DrcomTask extends AsyncTask<HostInfo,String,String> {
     }
 
     private boolean alive() throws IOException {
+        init();
         boolean needExtra = false;
         ++keep38Count;
         performLogCall("count = "+count+", keep38count = " +keep38Count);
@@ -346,6 +481,7 @@ public class DrcomTask extends AsyncTask<HostInfo,String,String> {
         //-------------- keep38 ----------------------------------------------------
         byte[] packet38 = makeKeepPacket38();
         DatagramPacket packet = new DatagramPacket(packet38, packet38.length, serverAddress, DrcomConfig.PORT);
+        sleepBeforeSend();
         client.send(packet);
         performLogCall("[rand="+ByteUtil.toHexString(packet38[36])+"|"+ByteUtil.toHexString(packet38[37])+"]"
                 +"send keep38.:"+ByteUtil.toHexString(packet38));
@@ -366,6 +502,7 @@ public class DrcomTask extends AsyncTask<HostInfo,String,String> {
             //先发 keep40_extra 包
             byte[] packet40extra = makeKeepPacket40(1, true);
             packet = new DatagramPacket(packet40extra, packet40extra.length, serverAddress, DrcomConfig.PORT);
+            sleepBeforeSend();
             client.send(packet);
             logStr = String.format("[seq={%s}|type={%s}][rand={%s}|{%s}]send Keep40_extra. 【{%s}】",
                     packet40extra[1], packet40extra[5],
@@ -375,7 +512,7 @@ public class DrcomTask extends AsyncTask<HostInfo,String,String> {
             recv = new byte[512];
             client.receive(new DatagramPacket(recv, recv.length));
             logStr = String.format("[seq={%s}|type={%s}][rand={%s}|{%s}]recv Keep40_extra. 【{%s}】",
-                recv[1], recv[5], ByteUtil.toHexString(recv[8]), ByteUtil.toHexString(recv[9]), ByteUtil.toHexString(recv));
+                    recv[1], recv[5], ByteUtil.toHexString(recv[8]), ByteUtil.toHexString(recv[9]), ByteUtil.toHexString(recv));
             performLogCall(logStr);
             //不理会回复
         }
@@ -383,6 +520,7 @@ public class DrcomTask extends AsyncTask<HostInfo,String,String> {
         //--------------keep40_1----------------------------------------------------
         byte[] packet40_1 = makeKeepPacket40(1, false);
         packet = new DatagramPacket(packet40_1, packet40_1.length, serverAddress, DrcomConfig.PORT);
+        sleepBeforeSend();
         client.send(packet);
         logStr = String.format("[seq={%s}|type={%s}][rand={%s}|{%s}]send Keep40_1. 【{%s}】",
                 packet40_1[1], packet40_1[5],
@@ -402,6 +540,7 @@ public class DrcomTask extends AsyncTask<HostInfo,String,String> {
         //--------------keep40_2----------------------------------------------------
         byte[] packet40_2 = makeKeepPacket40(2, false);
         packet = new DatagramPacket(packet40_2, packet40_2.length, serverAddress, DrcomConfig.PORT);
+        sleepBeforeSend();
         client.send(packet);
         logStr = String.format("[seq={%s}|type={%s}][rand={%s}|{%s}]send Keep40_2. 【{%s}】",
                 packet40_2[1], packet40_2[5],
@@ -494,6 +633,7 @@ public class DrcomTask extends AsyncTask<HostInfo,String,String> {
                 //不管怎样重新登录
                 if (succ) {
                     performMsgCall("注销成功");
+                    hideNotification();
                 }
                 if (client != null) {
                     client.close();
@@ -506,6 +646,7 @@ public class DrcomTask extends AsyncTask<HostInfo,String,String> {
     private boolean logout() throws IOException {
         byte[] buf = makeLogoutPacket();
         DatagramPacket packet = new DatagramPacket(buf, buf.length, serverAddress, DrcomConfig.PORT);
+        sleepBeforeSend();
         client.send(packet);
         performLogCall("send logout packet."+ ByteUtil.toHexString(buf));
 

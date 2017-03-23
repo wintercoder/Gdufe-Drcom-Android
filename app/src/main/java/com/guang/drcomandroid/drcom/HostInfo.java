@@ -1,5 +1,7 @@
 package com.guang.drcomandroid.drcom;
 
+import java.io.Serializable;
+
 /**
  * Created by lin on 2017-01-10-010.
  * Modify by guang on 2017-03-21
@@ -7,7 +9,7 @@ package com.guang.drcomandroid.drcom;
  * hostname 机器名，可随意，转Byte[]后长度<=32就好，故写死在DrcomTask里了
  * ip 从第一个challenge包的返回里获取
  */
-public class HostInfo {
+public class HostInfo implements Serializable{
     private final byte[] macBytes = new byte[6];  //mac地址，可随意，从xx-xx-xx-xx-xx-xx 或 xxxxxxxxxxxx 格式转换后是6位
     private String username;    //学号
     private String password;    //密码
