@@ -28,24 +28,6 @@ public class MainActivity extends Activity {
         btnLogin = (Button)this.findViewById(R.id.button1);
         btnLogout = (Button)this.findViewById(R.id.button2);
 
-
-//        NotificationManager mNotifyMgr =
-//                (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
-//        PendingIntent contentIntent = PendingIntent.getActivity(
-//                this, 1, new Intent(this, MainActivity.class), 0);
-//
-//        NotificationCompat.Builder mBuilder =
-//                new NotificationCompat.Builder(this)
-//                        .setSmallIcon(R.mipmap.ic_launcher)
-//                        .setContentTitle("Drcom正常运行中")
-//                        .setContentText("测试")
-//                        .setTicker("测试通知来啦")
-//                        .setDefaults(Notification.DEFAULT_VIBRATE)
-//                        .setWhen(System.currentTimeMillis())
-//                        .setContentIntent(contentIntent);
-//
-//        mNotifyMgr.notify(1, mBuilder.build());
-
         btnLogin.setOnClickListener(new View.OnClickListener() {
 
             public void onClick(View v){
@@ -56,15 +38,6 @@ public class MainActivity extends Activity {
                 Intent startIntent = new Intent(MainActivity.this, DrcomService.class);
                 startIntent.putExtra("info",info);
                 startService(startIntent);
-//                HostInfo info = new HostInfo(mAccount,mPassword,"74-AC-5F-87-F3-ED");
-//                mDrcomTask = new DrcomTask();
-//                mDrcomTask.setOnMsgReceivedListener(new DrcomTask.MsgListener() {
-//                    @Override
-//                    public void onMsgReceived(String msg) {
-//                        Toast.makeText(MainActivity.this, msg, Toast.LENGTH_SHORT).show();
-//                    }
-//                });
-//                mDrcomTask.execute(info);
             }
         });
 
@@ -72,9 +45,6 @@ public class MainActivity extends Activity {
 
             @Override
             public void onClick(View arg0) {
-//                if (mDrcomTask != null) {
-//                    mDrcomTask.notifyLogout();
-//                }
                 stopService(new Intent(getBaseContext(), DrcomService.class));
             }
         });

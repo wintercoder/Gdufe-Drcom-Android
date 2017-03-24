@@ -83,6 +83,15 @@ public class DrcomService extends Service{
     public void onCreate() {
         super.onCreate();
         LogUtils.e("oncreate:"+isNotificationEnabled(this));
+        if(!isNotificationEnabled(this)){
+            Toast.makeText(this, "Dr.com没有通知栏权限，记得去设置里开启喔", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        hideNotification();
     }
 
     private void showNotification() {
@@ -93,10 +102,11 @@ public class DrcomService extends Service{
         NotificationCompat.Builder mBuilder =
                 new NotificationCompat.Builder(this)
                         .setSmallIcon(R.mipmap.ic_launcher)
-                        .setContentTitle("Drcom正常运行中")
-                        .setContentText("测试")
-                        .setTicker("测试通知来啦")
+                        .setContentTitle("Dr.com正常运行中")
+                        .setContentText("能看到我就说明有网络")
+                        .setTicker("Dr.com运行中")
                         .setWhen(System.currentTimeMillis())
+                        .setOngoing(false)      //用户无法滑动删除通知栏
                         .setContentIntent(contentIntent);
         mNotifyMgr.notify(FOREGROUND_ID, mBuilder.build());
     }
@@ -105,9 +115,7 @@ public class DrcomService extends Service{
         notificationManager.cancel(FOREGROUND_ID);
     }
 
-
     private  boolean isNotificationEnabled(Context context) {
-
         AppOpsManager mAppOps = (AppOpsManager) context.getSystemService(Context.APP_OPS_SERVICE);
         ApplicationInfo appInfo = context.getApplicationInfo();
         String pkg = context.getApplicationContext().getPackageName();
@@ -222,7 +230,7 @@ public class DrcomService extends Service{
                     //重置端口 继续发alive包，若超过则可能是UDP丢包导致
                     init();
                     if(reconnectTimes >= 2){
-                        //第一次只重发alive失败后之后选择重新登陆
+                        //第一次只重发alive，失败后之后第二三次选择重新登陆
                         if (!challenge(challengeTimes++)||!login()) {
                             performMsgCall("自动重新登陆失败，准备断网");
                             break;
@@ -240,7 +248,7 @@ public class DrcomService extends Service{
         } catch (SocketTimeoutException e) {
             e.printStackTrace();
             performMsgCall("通信超时:"+e.getMessage());
-//            exception = true;
+            exception = true;
         } catch (IOException e) {
             performMsgCall("IO 异常"+e.getMessage());
             exception = true;
@@ -486,7 +494,7 @@ public class DrcomService extends Service{
         performLogCall("[rand="+ByteUtil.toHexString(packet38[36])+"|"+ByteUtil.toHexString(packet38[37])+"]"
                 +"send keep38.:"+ByteUtil.toHexString(packet38));
 
-        byte[] recv = new byte[128];
+        byte[] recv = new byte[64];
         client.receive(new DatagramPacket(recv, recv.length));
         String logStr = String.format("[rand={%s}|{%s}]recv Keep38. [{%s}.{%s}.{%s}.{%s}] 【{%s}】",
                 ByteUtil.toHexString(recv[6]), ByteUtil.toHexString(recv[7]),
@@ -496,6 +504,7 @@ public class DrcomService extends Service{
         keepAliveVer[0] = recv[28];//收到keepAliveVer//通常不会变
         keepAliveVer[1] = recv[29];
 
+        needExtra = false;  //不发送keep40_extra貌似不影响广财的上网
         if (needExtra) {//每十次keep38都要发一个 keep40_extra
             performLogCall("Keep40_extra...");
             //--------------keep40_extra--------------------------------------------
@@ -509,7 +518,7 @@ public class DrcomService extends Service{
                     ByteUtil.toHexString(packet40extra[8]), ByteUtil.toHexString(packet40extra[9]),
                     ByteUtil.toHexString(packet40extra));
             performLogCall(logStr);
-            recv = new byte[512];
+            recv = new byte[40];
             client.receive(new DatagramPacket(recv, recv.length));
             logStr = String.format("[seq={%s}|type={%s}][rand={%s}|{%s}]recv Keep40_extra. 【{%s}】",
                     recv[1], recv[5], ByteUtil.toHexString(recv[8]), ByteUtil.toHexString(recv[9]), ByteUtil.toHexString(recv));
@@ -527,7 +536,7 @@ public class DrcomService extends Service{
                 ByteUtil.toHexString(packet40_1[8]), ByteUtil.toHexString(packet40_1[9]),
                 ByteUtil.toHexString(packet40_1));
         performLogCall(logStr);
-        recv = new byte[64];//40
+        recv = new byte[40];//40
         client.receive(new DatagramPacket(recv, recv.length));
         logStr = String.format("[seq={%s}|type={%s}][rand={%s}|{%s}]send Keep40_1. 【{%s}】",
                 recv[1], recv[5],
@@ -547,6 +556,7 @@ public class DrcomService extends Service{
                 ByteUtil.toHexString(packet40_2[8]), ByteUtil.toHexString(packet40_2[9]),
                 ByteUtil.toHexString(packet40_2));
         performLogCall(logStr);
+        recv = new byte[40];
         client.receive(new DatagramPacket(recv, recv.length));
 //        performLogCall("[seq={%s}|type={%s}][rand={%s}|{%s}]recv Keep40_2. 【{%s}】", recv[1], recv[5],
 //                ByteUtil.toHexString(recv[8]), ByteUtil.toHexString(recv[9]), ByteUtil.toHexString(recv));
