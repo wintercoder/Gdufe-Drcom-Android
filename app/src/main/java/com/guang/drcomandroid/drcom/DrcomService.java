@@ -1,6 +1,7 @@
 package com.guang.drcomandroid.drcom;
 
 import android.app.AppOpsManager;
+import android.app.Notification;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
@@ -12,7 +13,6 @@ import android.os.IBinder;
 import android.os.Looper;
 import android.support.annotation.Nullable;
 import android.support.v4.app.NotificationCompat;
-import android.util.Log;
 import android.widget.Toast;
 
 import com.apkfuns.logutils.LogUtils;
@@ -52,7 +52,6 @@ public class DrcomService extends Service{
     }
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        Log.i(TAG, "WhiteService->onStartCommand");
         mHostInfo = (HostInfo)intent.getSerializableExtra("info");
         username = mHostInfo.getUsername();
         password = mHostInfo.getPassword();
@@ -82,9 +81,8 @@ public class DrcomService extends Service{
     @Override
     public void onCreate() {
         super.onCreate();
-        LogUtils.e("oncreate:"+isNotificationEnabled(this));
         if(!isNotificationEnabled(this)){
-            Toast.makeText(this, "Dr.com没有通知栏权限，记得去设置里开启喔", Toast.LENGTH_SHORT).show();
+            performMsgCall("Dr.com没有通知栏权限，记得去设置里开启喔");
         }
     }
 
@@ -108,7 +106,9 @@ public class DrcomService extends Service{
                         .setWhen(System.currentTimeMillis())
                         .setOngoing(false)      //用户无法滑动删除通知栏
                         .setContentIntent(contentIntent);
-        mNotifyMgr.notify(FOREGROUND_ID, mBuilder.build());
+        Notification notification = mBuilder.build();
+        startForeground(FOREGROUND_ID,notification);    //前台，防止被系统kill
+        mNotifyMgr.notify(FOREGROUND_ID, notification);
     }
     private void hideNotification(){
         NotificationManager notificationManager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);

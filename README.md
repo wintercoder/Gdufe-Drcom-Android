@@ -1,8 +1,13 @@
 # Gdufe-Drcom-Android
-广东财经大学Android版Drcom demo，哆点精简版，只提供登陆、退出测试功能，完整的应用（包含常驻后台等）应该会在两三个月后推出。  
+广东财经大学Android版Drcom demo，哆点精简版，只提供登陆、退出测试功能。  
 代码结构根据 [jlu-drcom-java](https://github.com/drcoms/jlu-drcom-client/tree/master/jlu-drcom-java) 改过来，做了广财的适配和安卓化。
-
 ![](readme/apk-small.png)
+
+## 常见问题
+1. 使用前记得连上学校wifi
+2. 关闭屏幕后断网了，去系统设置里给APP开锁屏清理白名单；默认在登陆后有通知栏提示，如果没有，也是系统设置没交保护费，自行设置去，通知栏的存在是为了防止被系统kill，且方便用户看。
+3. 广财版去掉了keep40_extra包的发送，不影响使用，其他学校看着办。如果使用后全校断网了请谨慎使用，已知该库git的 `26a9246` 版本在上网高峰期疑似引起过断网，也不知道是mac冲突还是接受数组设置大了导致缓冲区溢出或其他原因，如果发现什么情况下会导致全校断网建议提个issue。
+4. 若发现 `recvfrom failed: EAGAIN (Try again)` 且解决了，欢迎 Pull 
 
 ## 适配广财
 广财的包和其他学校的基本一样，看py版即可对比得知。
@@ -15,10 +20,11 @@
 否则修改 [DrcomConfig](https://github.com/wintercoder/Gdufe-Drcom-Android/blob/master/app/src/main/java/com/guang/drcomandroid/drcom/DrcomConfig.java) 的服务器地址、客户端版本号、dns、dhcp服务器基本就能用了
 
 ## 细节
-ip地址从第一次 `challenge` 包的返回里 `[20:24]` 获取，不用手动输入，mac不校验故随意写死。   
+ip地址从第一次 `challenge` 包的返回里 `[20:24]` 获取，不用手动输入，mac虽然不校验但还是获取设备的mac地址了，如果是android6.0以上会返回一个固定的mac地址。   
 更多数据细节，如数据包各字节的意义，见 [吉大drcom的协议说明](https://github.com/drcoms/jlu-drcom-client/blob/master/jlu-drcom-java/jlu-drcom-protocol.md) ，吉大的跟多数学校（含广财）的D版不太一样，例子是吉大用的是py版 `mkpkt()` 里 `AUTH_VERSION` 上面被注释的几行而大多数学校用的是 `AUTH_VERSION` 那行。
 
 ## License
-沿用 [jlu-drcom-java](https://github.com/drcoms/jlu-drcom-client/tree/master/jlu-drcom-java) 的 AGPL ，吃我一记 GPL 感染大法
+沿用 [jlu-drcom-java](https://github.com/drcoms/jlu-drcom-client/tree/master/jlu-drcom-java) 的 AGPL ，吃我一记 GPL 感染大法。  
+若  [jlu-drcom-java](https://github.com/drcoms/jlu-drcom-client/tree/master/jlu-drcom-java)  修改了协议，欢迎通知，该仓库也跟着改。
 
 

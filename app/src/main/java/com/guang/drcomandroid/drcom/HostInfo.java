@@ -10,7 +10,7 @@ import java.io.Serializable;
  * ip 从第一个challenge包的返回里获取
  */
 public class HostInfo implements Serializable{
-    private final byte[] macBytes = new byte[6];  //mac地址，可随意，从xx-xx-xx-xx-xx-xx 或 xxxxxxxxxxxx 格式转换后是6位
+    private final byte[] macBytes = new byte[6];  //mac地址，可随意
     private String username;    //学号
     private String password;    //密码
 
@@ -24,13 +24,16 @@ public class HostInfo implements Serializable{
         if (mac.contains("-")) {
             mac = mac.replaceAll("-", "");
         }
+        if (mac.contains(":")) {
+            mac = mac.replaceAll(":", "");
+        }
         if (mac.length() != 12) {
-            throw new RuntimeException("MAC 地址格式错误。应为 xx-xx-xx-xx-xx-xx 或 xxxxxxxxxxxx 格式的 16 进制: " + mac);
+            throw new RuntimeException("MAC 地址格式错误。应为 xx:xx:xx:xx:xx:xx 或 xx-xx-xx-xx-xx-xx 或 xxxxxxxxxxxx 格式的 16 进制: " + mac);
         }
         try {
             Long.parseLong(mac, 16);
         } catch (NumberFormatException e) {
-            throw new RuntimeException("MAC 地址格式错误。应为 xx-xx-xx-xx-xx-xx 或 xxxxxxxxxxxx 格式的 16 进制: " + mac);
+            throw new RuntimeException("MAC 地址格式错误。应为 xx:xx:xx:xx:xx:xx 或 xx-xx-xx-xx-xx-xx 或 xxxxxxxxxxxx 格式的 16 进制: " + mac);
         }
         StringBuilder sb = new StringBuilder(18);
         for (int i = 0; i < 12; i++) {
