@@ -89,7 +89,7 @@ public class DrcomService extends Service{
     @Override
     public void onDestroy() {
         super.onDestroy();
-        hideNotification();
+        cancelNotification();
     }
 
     private void showNotification() {
@@ -110,7 +110,7 @@ public class DrcomService extends Service{
         startForeground(FOREGROUND_ID,notification);    //前台，防止被系统kill
         mNotifyMgr.notify(FOREGROUND_ID, notification);
     }
-    private void hideNotification(){
+    private void cancelNotification(){
         NotificationManager notificationManager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
         notificationManager.cancel(FOREGROUND_ID);
     }
@@ -260,7 +260,8 @@ public class DrcomService extends Service{
         } finally {
             if (exception) {//若发生了异常：密码错误等。 则应允许重新登录
                 //TODO 重新登录
-                hideNotification();
+                cancelNotification();
+                stopSelf(); //停止service的运行
                 isLogin = false;
             }
             if (client != null) {
@@ -643,7 +644,8 @@ public class DrcomService extends Service{
                 //不管怎样重新登录
                 if (succ) {
                     performMsgCall("注销成功");
-                    hideNotification();
+                    cancelNotification();
+                    stopSelf();
                 }
                 if (client != null) {
                     client.close();
