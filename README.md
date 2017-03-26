@@ -5,11 +5,11 @@
 
 ## 常见问题
 1. 使用前记得连上学校wifi
-2. 关闭屏幕后断网了，去系统设置里给APP开锁屏清理白名单；默认在登陆后有通知栏提示，如果没有，也是系统设置没交保护费，自行设置去，通知栏的存在是为了[保活](http://www.jianshu.com/p/63aafe3c12af)，且方便用户看。
-3. 广财版去掉了 `keep40_extra` 包的发送，不影响使用，其他学校看着办，一般也不用。
-4. 已知 Bug
- 1. 偶发性异常 `recvfrom failed: EAGAIN (Try again)`  可能为UDP丢包，目前解决方案是重发数据包。
- 2. 偶发性异常 `sendto: Operation not Permitted` google说是Linux(android也是linux)底层的nf_conntrack模块的conntrack表满了，会自动drop掉网络包，可`iptables`或者调最大值解决，但Android没法在不root的情况下进行这些操作，很尴尬，所以目前也是重发。
+1. 关闭屏幕后断网了，去系统设置里给APP开锁屏清理白名单；默认在登陆后有通知栏提示，如果没有，也是系统设置没交保护费，自行设置去，通知栏的存在是为了[保活](http://www.jianshu.com/p/63aafe3c12af)，且方便用户看。
+1. 广财版去掉了 `keep40_extra` 包的发送，不影响使用，其他学校看着办，一般也不用。
+1. 已知 Bug
+   1. 偶发性异常 `recvfrom failed: EAGAIN (Try again)`  可能为UDP丢包，目前解决方案是重发数据包。
+   1. 偶发性异常 `sendto: Operation not Permitted` google说是Linux(android也是linux)底层的nf_conntrack模块的conntrack表满了，会自动drop掉网络包，可`iptables`或者调最大值解决，但Android没法在不root的情况下进行这些操作，很尴尬，所以目前也是重发。
 
 ## 适配广财
 广财的包和其他学校的基本一样，看py版即可对比得知。
