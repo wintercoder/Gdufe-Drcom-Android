@@ -8,6 +8,7 @@ import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.Toast;
 
 import com.guang.drcomandroid.drcom.DrcomService;
 import com.guang.drcomandroid.drcom.HostInfo;
@@ -21,6 +22,7 @@ public class MainActivity extends Activity {
     private Button btnLogin;
     private Button btnLogout;
     private String spFileName = "store";
+    private final String drcomSSid[] = {"gdufe","gdufe-teacher","Young"}; //能上网的wifi名
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -42,7 +44,27 @@ public class MainActivity extends Activity {
                 mAccount = edAccount.getText().toString();
                 mPassword = edPassword.getText().toString();
 
-                String mac = new WifiUtils(MainActivity.this).getMacAddress();
+                //检查wifi是否打开且是否为学校wifi
+                WifiUtils wifiUtils = new WifiUtils(MainActivity.this);
+                if(!wifiUtils.isWifiOpened()){
+                    Toast.makeText(MainActivity.this, "wifi未打开", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                String wifiName = wifiUtils.getSSID();
+                wifiName = wifiName.replace("\"","");   //4.0以上的getSSID返回 "gdufe" 带了引号
+                boolean isSchoolWifi = false;
+                for (String ssidName: drcomSSid ) {
+                    if (ssidName.equalsIgnoreCase(wifiName)) {
+                        isSchoolWifi = true;
+                        break;
+                    }
+                }
+                if(!isSchoolWifi){
+                    Toast.makeText(MainActivity.this, "未连接学校wifi", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+
+                String mac = wifiUtils.getMacAddress();
                 HostInfo info = new HostInfo(mAccount,mPassword, mac);
                 Intent startIntent = new Intent(MainActivity.this, DrcomService.class);
                 startIntent.putExtra("info",info);

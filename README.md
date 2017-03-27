@@ -22,7 +22,7 @@
 否则修改 [DrcomConfig](https://github.com/wintercoder/Gdufe-Drcom-Android/blob/master/app/src/main/java/com/guang/drcomandroid/drcom/DrcomConfig.java) 的服务器地址、客户端版本号、dns、dhcp服务器基本就能用了
 
 ## 细节
-ip地址从第一次 `challenge` 包的返回里 `[20:24]` 获取，不用手动输入，mac虽然不校验但还是获取设备的mac地址了，如果是android6.0以上会返回一个固定的mac地址。   
+ip地址从第一次 `challenge` 包的返回里 `[20:24]` 获取，不用手动输入，mac虽然不校验但还是获取设备的mac地址了。  
 更多数据细节，如数据包各字节的意义，见 [吉大drcom的协议说明](https://github.com/drcoms/jlu-drcom-client/blob/master/jlu-drcom-java/jlu-drcom-protocol.md) ，吉大的跟多数学校（含广财）的D版不太一样，例子是吉大用的是py版 `mkpkt()` 里 `AUTH_VERSION` 上面被注释的几行而大多数学校用的是 `AUTH_VERSION` 那行。
 
 ## License

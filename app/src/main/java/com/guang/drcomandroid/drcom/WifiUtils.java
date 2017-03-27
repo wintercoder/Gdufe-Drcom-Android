@@ -1,11 +1,12 @@
 package com.guang.drcomandroid.drcom;
 
-
 import android.content.Context;
 import android.net.wifi.ScanResult;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
 
+import java.net.NetworkInterface;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -51,11 +52,20 @@ public class WifiUtils {
             mWifiManager.setWifiEnabled(false);
         }
     }
-    */
-
-    public boolean isEnable() {
+    //不准确的判断wifi是否开关
+     private boolean isEnable() {
         return mWifiManager.isWifiEnabled();
     }
+    */
+
+    /**
+     * wifi是否为打开状态，即有开wifi（不含打开中）
+     * @return
+     */
+    public boolean isWifiOpened() {
+        return WifiManager.WIFI_STATE_ENABLED == mWifiManager.getWifiState();
+    }
+
 
     // 检查当前WIFI状态
     public int checkState() {
@@ -98,12 +108,36 @@ public class WifiUtils {
         return stringBuilder;
     }
 
-    // 得到MAC地址，android6.0返回02:00:00:00:00:00
+    // 得到MAC地址
     public String getMacAddress() {
-        return (mWifiInfo == null) ? "NULL" : mWifiInfo.getMacAddress();
+        if(mWifiInfo == null) return "01:02:03:04:05:06";
+        String mac = mWifiInfo.getMacAddress();
+        if("02:00:00:00:00:00".equals(mac)){    //说明是android 6.0
+            //android 6.0 获取mac的代码，有异常就继续返回02:00:00:00:00:00
+            try {
+                List<NetworkInterface> all = Collections.list(NetworkInterface.getNetworkInterfaces());
+                for (NetworkInterface nif : all) {
+                    if (!nif.getName().equalsIgnoreCase("wlan0")) continue;
+                    byte[] macBytes = nif.getHardwareAddress();
+                    if (macBytes == null) {
+                        return "";
+                    }
+                    StringBuilder res1 = new StringBuilder();
+                    for (byte b : macBytes) {
+                        res1.append(String.format("%02X:",b));
+                    }
+                    if (res1.length() > 0) {
+                        res1.deleteCharAt(res1.length() - 1);
+                    }
+                    return res1.toString();
+                }
+            } catch (Exception ex) {
+            }
+        }
+        return mac;
     }
 
-    // 得到接入点的BSSID
+    // 得到接入点(wifi设备/路由器)的BSSID
     public String getBSSID() {
         return (mWifiInfo == null) ? "NULL" : mWifiInfo.getBSSID();
     }
