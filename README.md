@@ -13,7 +13,7 @@
 
 ## 适配广财
 广财的包和其他学校的基本一样，看py版即可对比得知。
-主要改了 [服务器地址、验证版本号](https://github.com/wintercoder/Gdufe-Drcom-Android/blob/master/app/src/main/java/com/guang/drcomandroid/drcom/DrcomConfig.java)、 [controlCheck、adapterNum、keepAliveVer、challenge()的第5个byte](https://github.com/wintercoder/Gdufe-Drcom-Android/blob/master/app/src/main/java/com/guang/drcomandroid/drcom/DrcomTask.java) 、[登陆包的AUTH_VERSION附近【第310个包，改动较大】](https://github.com/wintercoder/Gdufe-Drcom-Android/blob/master/app/src/main/java/com/guang/drcomandroid/drcom/DrcomTask.java)，其他基本不会被服务器校验，故没所谓。其中 `AUTH_VERSION` 附近代码与吉大的差异较大，且在客户端强制更新的时候会更新该字段，造成老版本不能用，故设为 `0x7f` 了，足够大。
+主要改了 [服务器地址、验证版本号](https://github.com/wintercoder/Gdufe-Drcom-Android/blob/master/app/src/main/java/com/guang/drcomandroid/drcom/DrcomConfig.java)、 [controlCheck、adapterNum、keepAliveVer、challenge()的第5个byte](https://github.com/wintercoder/Gdufe-Drcom-Android/blob/master/app/src/main/java/com/guang/drcomandroid/drcom/DrcomService.java) 、[登陆包的AUTH_VERSION附近【第310个包，改动较大】](https://github.com/wintercoder/Gdufe-Drcom-Android/blob/master/app/src/main/java/com/guang/drcomandroid/drcom/DrcomService.java)，其他基本不会被服务器校验，故没所谓。其中 `AUTH_VERSION` 附近代码与吉大的差异较大，且在客户端强制更新的时候会更新该字段，造成老版本不能用，故设为 `0x7f` 了，足够大。
 
 
 ## 适配其他学校
@@ -27,6 +27,4 @@ ip地址从第一次 `challenge` 包的返回里 `[20:24]` 获取，不用手动
 
 ## License
 沿用 [jlu-drcom-java](https://github.com/drcoms/jlu-drcom-client/tree/master/jlu-drcom-java) 的 AGPL ，吃我一记 GPL 感染大法。  
-若  [jlu-drcom-java](https://github.com/drcoms/jlu-drcom-client/tree/master/jlu-drcom-java)  修改了协议，欢迎通知，该仓库也跟着改。
-
 
