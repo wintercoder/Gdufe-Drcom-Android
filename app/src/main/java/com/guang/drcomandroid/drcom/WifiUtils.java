@@ -35,6 +35,26 @@ public class WifiUtils {
         // 取得WifiInfo对象
         mWifiInfo = mWifiManager.getConnectionInfo();
     }
+    /**
+     * 判断当前wifi是不是学校wifi
+     * @param wifiUtils
+     * @return
+     */
+    public static boolean currentIsSchoolWifi(WifiUtils wifiUtils) {
+        return true;
+        //TODO 知道学校wifi名后 改下面这个数组，解开注释 就行了
+//        final String drcomSSid[] = {"gdufe","gdufe-teacher","Young"}; //能上网的wifi名
+//        String wifiName = wifiUtils.getSSID();
+//        wifiName = wifiName.replace("\"","");   //4.0以上的getSSID返回 "gdufe" 带了引号
+//        boolean isSchoolWifi = false;
+//        for (String ssidName: drcomSSid ) {
+//            if (ssidName.equalsIgnoreCase(wifiName)) {
+//                isSchoolWifi = true;
+//                break;
+//            }
+//        }
+//        return isSchoolWifi;
+    }
 
     // 打开WIFI，暂不需要这东西 避开权限
     /*

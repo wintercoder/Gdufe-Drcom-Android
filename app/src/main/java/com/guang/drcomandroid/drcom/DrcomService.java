@@ -5,9 +5,13 @@ import android.app.Notification;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.ApplicationInfo;
+import android.net.NetworkInfo;
+import android.net.wifi.WifiManager;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
@@ -34,8 +38,6 @@ import java.net.UnknownHostException;
  * Created by xiaoguang on 2017/3/22.
  */
 public class DrcomService extends Service{
-    private final static String TAG = DrcomService.class.getSimpleName();
-    private static final long TIME_FOR_BUG = 300;
 
     private String mHostName = "Android";   //机器名，可随意
     private String mHostOs = "Android";   //系统名，可随意
@@ -45,6 +47,7 @@ public class DrcomService extends Service{
     private boolean isLogin = false; //是否登陆成功，用于注销和重复登陆判断
 
     private final static int FOREGROUND_ID = 1000;
+    private NetWorkChangeReceiver mNetWorkReceiver;
     @Nullable
     @Override
     public IBinder onBind(Intent intent) {
@@ -55,13 +58,8 @@ public class DrcomService extends Service{
         mHostInfo = (HostInfo)intent.getSerializableExtra("info");
         username = mHostInfo.getUsername();
         password = mHostInfo.getPassword();
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                // 开始执行后台任务
-                mainRun();
-            }
-        }).start();
+      
+        startThread();
         return super.onStartCommand(intent, flags, startId);
     }
     //打日志，封装一下，方便修改
@@ -74,22 +72,54 @@ public class DrcomService extends Service{
         Handler handler=new Handler(Looper.getMainLooper());
         handler.post(new Runnable(){
             public void run(){
-                Toast.makeText(getApplicationContext(), msg, Toast.LENGTH_LONG).show();
+                Toast.makeText(getApplicationContext(), "Drcom:"+msg, Toast.LENGTH_SHORT).show();
             }
         });
+    }
+    //停止Thread : http://stackoverflow.com/questions/680180/where-to-stop-destroy-threads-in-android-service-class
+    private  volatile Thread runner;
+    private synchronized void startThread(){
+        if(runner == null){
+            runner = new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    mainRun();
+                }
+            });
+            runner.start();
+        }
+    }
+    private synchronized void stopThread(){
+        if(runner != null){
+            Thread moribund = runner;
+            runner = null;
+            moribund.interrupt();
+        }
     }
     @Override
     public void onCreate() {
         super.onCreate();
         if(!isNotificationEnabled(this)){
-            performMsgCall("Dr.com没有通知栏权限，记得去设置里开启喔");
+            performMsgCall("未开启通知栏权限，不影响使用，但看不到运行状态");
         }
+
+        //注册网络改变监听器
+        mNetWorkReceiver = new NetWorkChangeReceiver();
+        IntentFilter filter = new IntentFilter();
+        filter.addAction("android.net.wifi.STATE_CHANGE");
+        filter.addAction("android.net.wifi.WIFI_STATE_CHANGED");
+        this.registerReceiver(mNetWorkReceiver, filter);
     }
 
     @Override
     public void onDestroy() {
         super.onDestroy();
+        performLogCall("onDestroy()");
+        stopThread();
         cancelNotification();
+        if(mNetWorkReceiver != null) {
+            this.unregisterReceiver(mNetWorkReceiver);
+        }
     }
 
     private void showNotification() {
@@ -213,7 +243,9 @@ public class DrcomService extends Service{
             long oldTimes = System.currentTimeMillis();//上一次重连/正常运行 开始的时间
             while (reconnectTimes <= DrcomConfig.ReconnectTIMES){
                 try {
-                    while (!notifyLogout && alive()) {//收到注销通知则停止
+                    while (!notifyLogout
+                            && !Thread.currentThread().isInterrupted()
+                            && alive()) {   //收到注销通知或者调用了onDestory停止了线程则停止
                         Thread.sleep(20000);//每 20s 一次
                     }
                 } catch (SocketTimeoutException e) {
@@ -243,6 +275,10 @@ public class DrcomService extends Service{
                         reconnectTimes = 0;
                     }
                     oldTimes = curTimes;
+                }catch (InterruptedException e) {
+                    performLogCall("因退出登陆而合理关闭线程，这里进行注销");
+                    notifyLogout();
+                    break;
                 }
             }
         } catch (SocketTimeoutException e) {
@@ -251,9 +287,7 @@ public class DrcomService extends Service{
             exception = true;
         } catch (IOException e) {
             performMsgCall("IO 异常"+e.getMessage());
-            exception = true;
-        } catch (InterruptedException e) {
-            performMsgCall("线程异常"+e.getMessage());
+
             exception = true;
         } catch (Exception e) {
             exception = true;
@@ -288,6 +322,7 @@ public class DrcomService extends Service{
         } catch (UnknownHostException e) {
             performMsgCall("认证服务器不通，确保你在校园网wifi内");
         }catch (Exception e){
+            cancelNotification();
             e.printStackTrace();
             performMsgCall(e.getMessage());
         }
@@ -304,7 +339,6 @@ public class DrcomService extends Service{
                     0x00, 0x00, 0x00, 0x00, 0x00,
                     0x00, 0x00, 0x00, 0x00, 0x00};
             DatagramPacket packet = new DatagramPacket(buf, buf.length, serverAddress, DrcomConfig.PORT);
-            sleepBeforeSend();
             client.send(packet);
             performLogCall("send challenge data: " + ByteUtil.toHexString(buf));
             buf = new byte[76]; //返回76大小
@@ -326,17 +360,9 @@ public class DrcomService extends Service{
         }
         return true;
     }
-    private void sleepBeforeSend(){
-//        try {
-//            Thread.sleep(TIME_FOR_BUG);
-//        } catch (InterruptedException e) {
-//            e.printStackTrace();
-//        }
-    }
     private boolean login() throws IOException {
         byte[] buf = makeLoginPacket();
         DatagramPacket packet = new DatagramPacket(buf, buf.length, serverAddress, DrcomConfig.PORT);
-        sleepBeforeSend();
         client.send(packet);
         performLogCall("send login packet: "+ ByteUtil.toHexString(buf));
         byte[] recv = new byte[45];
@@ -490,7 +516,6 @@ public class DrcomService extends Service{
         //-------------- keep38 ----------------------------------------------------
         byte[] packet38 = makeKeepPacket38();
         DatagramPacket packet = new DatagramPacket(packet38, packet38.length, serverAddress, DrcomConfig.PORT);
-        sleepBeforeSend();
         client.send(packet);
         performLogCall("[rand="+ByteUtil.toHexString(packet38[36])+"|"+ByteUtil.toHexString(packet38[37])+"]"
                 +"send keep38.:"+ByteUtil.toHexString(packet38));
@@ -512,7 +537,6 @@ public class DrcomService extends Service{
             //先发 keep40_extra 包
             byte[] packet40extra = makeKeepPacket40(1, true);
             packet = new DatagramPacket(packet40extra, packet40extra.length, serverAddress, DrcomConfig.PORT);
-            sleepBeforeSend();
             client.send(packet);
             logStr = String.format("[seq={%s}|type={%s}][rand={%s}|{%s}]send Keep40_extra. 【{%s}】",
                     packet40extra[1], packet40extra[5],
@@ -530,7 +554,6 @@ public class DrcomService extends Service{
         //--------------keep40_1----------------------------------------------------
         byte[] packet40_1 = makeKeepPacket40(1, false);
         packet = new DatagramPacket(packet40_1, packet40_1.length, serverAddress, DrcomConfig.PORT);
-        sleepBeforeSend();
         client.send(packet);
         logStr = String.format("[seq={%s}|type={%s}][rand={%s}|{%s}]send Keep40_1. 【{%s}】",
                 packet40_1[1], packet40_1[5],
@@ -550,7 +573,6 @@ public class DrcomService extends Service{
         //--------------keep40_2----------------------------------------------------
         byte[] packet40_2 = makeKeepPacket40(2, false);
         packet = new DatagramPacket(packet40_2, packet40_2.length, serverAddress, DrcomConfig.PORT);
-        sleepBeforeSend();
         client.send(packet);
         logStr = String.format("[seq={%s}|type={%s}][rand={%s}|{%s}]send Keep40_2. 【{%s}】",
                 packet40_2[1], packet40_2[5],
@@ -636,7 +658,7 @@ public class DrcomService extends Service{
             boolean succ = true;
             try {
                 challenge(challengeTimes++);
-                logout();
+                succ = logout();
             } catch (Throwable t) {
                 succ = false;
                 performMsgCall("注销异常"+t.getMessage());
@@ -658,7 +680,6 @@ public class DrcomService extends Service{
     private boolean logout() throws IOException {
         byte[] buf = makeLogoutPacket();
         DatagramPacket packet = new DatagramPacket(buf, buf.length, serverAddress, DrcomConfig.PORT);
-        sleepBeforeSend();
         client.send(packet);
         performLogCall("send logout packet."+ ByteUtil.toHexString(buf));
 
@@ -666,11 +687,9 @@ public class DrcomService extends Service{
         client.receive(new DatagramPacket(recv, recv.length));
         performLogCall("recv logout packet response."+ByteUtil.toHexString(recv));
         if (recv[0] == 0x04) {
-            performMsgCall("注销成功");
-        } else {
-            performMsgCall("注销...失败?");
+            return true;
         }
-        return true;
+        return false;
     }
 
     private byte[] makeLogoutPacket() {
@@ -693,4 +712,37 @@ public class DrcomService extends Service{
         return data;
     }
 
+    /**
+     * 监听网络改变情况，关闭wifi、切换到其他wifi 时退出登录
+     */
+    class NetWorkChangeReceiver extends BroadcastReceiver {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            //wifi更换时判断目标是不是学校wifi,不是的话就停掉
+            if (intent.getAction().equals(WifiManager.NETWORK_STATE_CHANGED_ACTION)) {
+                NetworkInfo info = intent.getParcelableExtra(WifiManager.EXTRA_NETWORK_INFO);
+                if (info.getState().equals(NetworkInfo.State.CONNECTED)) {  //连上wifi
+
+                    WifiUtils wifiUtils = new WifiUtils(context);
+                    boolean isSchoolWifi = WifiUtils.currentIsSchoolWifi(wifiUtils);
+                    if(!isSchoolWifi){
+                        performMsgCall("wifi切换，已退出登陆");
+                        cancelNotification();
+                        stopSelf(); //停止service
+                        return;
+                    }
+                }
+            }
+            //wifi关闭就直接停掉
+            if (intent.getAction().equals(WifiManager.WIFI_STATE_CHANGED_ACTION)) {
+                int wifiState = intent.getIntExtra(WifiManager.EXTRA_WIFI_STATE, WifiManager.WIFI_STATE_DISABLED);
+                if (wifiState == WifiManager.WIFI_STATE_DISABLED) {
+                    performMsgCall("wifi已关闭，自动退出登陆");
+                    cancelNotification();
+                    stopSelf(); //停止service
+                }
+    //            if (wifistate == WifiManager.WIFI_STATE_ENABLED) WIFI开启
+            }
+        }
+    }
 }

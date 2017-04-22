@@ -48,7 +48,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginBottom="112dp"
-        android:text="login"
+        android:text="登陆"
         android:layout_alignParentBottom="true"
         android:layout_toRightOf="@+id/textView2"
         android:layout_toEndOf="@+id/textView2" />
@@ -58,7 +58,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginRight="53dp"
-        android:text="logout"
+        android:text="注销"
         android:layout_alignTop="@+id/button1"
         android:layout_alignRight="@+id/editText2"
         android:layout_alignEnd="@+id/editText2"

@@ -13,7 +13,9 @@ import android.widget.Toast;
 import com.guang.drcomandroid.drcom.DrcomService;
 import com.guang.drcomandroid.drcom.HostInfo;
 import com.guang.drcomandroid.drcom.WifiUtils;
-
+//适配其他学校：
+// 1. 修改 WifiUtils.currentIsSchoolWifi 的判断学校wifi功能
+// 2. 修改 DrcomConfig
 public class MainActivity extends Activity {
     private String mAccount;
     private String mPassword;
@@ -22,7 +24,6 @@ public class MainActivity extends Activity {
     private Button btnLogin;
     private Button btnLogout;
     private String spFileName = "store";
-    private final String drcomSSid[] = {"gdufe","gdufe-teacher","Young"}; //能上网的wifi名
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -50,15 +51,8 @@ public class MainActivity extends Activity {
                     Toast.makeText(MainActivity.this, "wifi未打开", Toast.LENGTH_SHORT).show();
                     return;
                 }
-                String wifiName = wifiUtils.getSSID();
-                wifiName = wifiName.replace("\"","");   //4.0以上的getSSID返回 "gdufe" 带了引号
-                boolean isSchoolWifi = false;
-                for (String ssidName: drcomSSid ) {
-                    if (ssidName.equalsIgnoreCase(wifiName)) {
-                        isSchoolWifi = true;
-                        break;
-                    }
-                }
+
+                boolean isSchoolWifi = WifiUtils.currentIsSchoolWifi(wifiUtils);
                 if(!isSchoolWifi){
                     Toast.makeText(MainActivity.this, "未连接学校wifi", Toast.LENGTH_SHORT).show();
                     return;
