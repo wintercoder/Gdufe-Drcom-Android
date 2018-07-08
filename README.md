@@ -1,6 +1,6 @@
 # Gdufe-Drcom-Android
 广东财经大学Android版Drcom Demo，哆点精简版。   
-该项目为 [移动广财App](https://github.com/WeGdufe/MovingGdufe-Android) 的一个子功能，分离出来方便其他学校做适配迁移。  
+该项目为 [小广财App](https://github.com/WeGdufe/SmallGdufe-Android) 的一个子功能，分离出来方便其他学校做适配迁移。  
 
 代码结构根据 [jlu-drcom-java](https://github.com/drcoms/jlu-drcom-client/tree/master/jlu-drcom-java) 改过来，做了广财的适配和安卓化。   
 
